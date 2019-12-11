@@ -65,20 +65,20 @@ import org.openide.windows.TopComponent;
         })
 public final class LastEditedTopComponent extends TopComponent
 {
-    
+
     private final List<FileObject> changedFOs = new ArrayList<>();
     private final Set<FileObject> fosWithListeners = new HashSet<>();
     private final Map<FileObject, Long> lastAccess = new HashMap<>();
     FileChangeListener fcl;
-    
+
     public LastEditedTopComponent()
     {
         initComponents();
         setName( Bundle.CTL_LasteditedTopComponent() );
         setToolTipText( Bundle.HINT_LasteditedTopComponent() );
-        
+
         start();
-        
+
     }
 
     /** This method is called from within the constructor to
@@ -137,13 +137,13 @@ public final class LastEditedTopComponent extends TopComponent
     {
         // TODO add custom code on component opening
     }
-    
+
     @Override
     public void componentClosed()
     {
         // TODO add custom code on component closing
     }
-    
+
     private void start()
     {
         txtSearch.setText( "" );
@@ -157,13 +157,13 @@ public final class LastEditedTopComponent extends TopComponent
                 synchronized ( LastEditedTopComponent.this )
                 {
                     FileObject fo = (FileObject) fe.getSource();
-                    
+
                     lastAccess.put( fo, System.currentTimeMillis() );
                     if ( !changedFOs.contains( fo ) )
                     {
                         changedFOs.add( fo );
                     }
-                    
+
                     List<FileObject> toBeRemoved = new ArrayList<>();
                     List<String> names = new ArrayList<>();
                     for ( FileObject f : changedFOs )
@@ -178,13 +178,13 @@ public final class LastEditedTopComponent extends TopComponent
                             lastAccess.remove( f );
                         }
                     }
-                    
+
                     changedFOs.removeAll( toBeRemoved );
                     setListModel();
                 }
-                
+
             }
-            
+
             @Override
             public void fileDeleted( FileEvent fe )
             {
@@ -193,7 +193,7 @@ public final class LastEditedTopComponent extends TopComponent
                 lastAccess.remove( fo );
                 setListModel();
             }
-            
+
             @Override
             public void fileRenamed( FileRenameEvent fe )
             {
@@ -202,9 +202,9 @@ public final class LastEditedTopComponent extends TopComponent
                 lastAccess.remove( fo );
                 setListModel();
             }
-            
+
         };
-        
+
         DataObject.getRegistry().addChangeListener( (ChangeEvent e) ->
         {
             getChangedFileObjects().stream().filter( (fo) -> ( !fosWithListeners.contains( fo ) ) ).forEach( (fo) ->
@@ -213,7 +213,7 @@ public final class LastEditedTopComponent extends TopComponent
                 fo.addFileChangeListener( fcl );
             } );
         } );
-        
+
         addFocusListener( new FocusAdapter()
         {
             @Override
@@ -221,9 +221,9 @@ public final class LastEditedTopComponent extends TopComponent
             {
                 txtSearch.requestFocus();
             }
-            
+
         } );
-        
+
         txtSearch.addKeyListener( new KeyAdapter()
         {
             @Override
@@ -234,7 +234,7 @@ public final class LastEditedTopComponent extends TopComponent
                     list.requestFocus();
                 }
             }
-            
+
             @Override
             public void keyReleased( KeyEvent e )
             {
@@ -258,17 +258,17 @@ public final class LastEditedTopComponent extends TopComponent
                     setListModel();
                 }
             }
-            
+
             @Override
             public void keyTyped( KeyEvent e )
             {
                 // no use
             }
         } );
-        
+
         list.addMouseListener( new MouseAdapter()
         {
-            
+
             @Override
             public void mouseClicked( MouseEvent e )
             {
@@ -277,7 +277,7 @@ public final class LastEditedTopComponent extends TopComponent
                     JPopupMenu popup = new JPopupMenu();
                     popup.add( new JMenuItem( new AbstractAction( "kick" )
                     {
-                        
+
                         @Override
                         public void actionPerformed( ActionEvent e )
                         {
@@ -291,28 +291,31 @@ public final class LastEditedTopComponent extends TopComponent
                     openFile();
                 }
             }
-            
+
         } );
-        
+
         list.addKeyListener( new KeyAdapter()
         {
             @Override
             public void keyPressed( KeyEvent e )
             {
-                openFile();
+                if ( e.getKeyCode() == 10 )
+                {
+                    openFile();
+                }
             }
-            
+
         } );
-        
+
     }
-    
+
     private FileObject getSelectedFileObject()
     {
         Object selObj = list.getSelectedValue();
         if ( selObj != null )
         {
             String val = (String) selObj;
-            
+
             try
             {
                 FileObject f = changedFOs.stream().filter( fo -> fo.getNameExt().trim().equals( val.trim() ) ).findFirst().get();
@@ -322,11 +325,11 @@ public final class LastEditedTopComponent extends TopComponent
             {
                 System.err.println( "Last Edited: " + ex.getMessage() );
             }
-            
+
         }
         return null;
     }
-    
+
     private void openFile()
     {
         try
@@ -338,25 +341,25 @@ public final class LastEditedTopComponent extends TopComponent
         {
             System.err.println( "Last Edited: " + ex.getMessage() );
         }
-        
+
     }
-    
+
     private void kickFile()
     {
         FileObject selectedFileObject = getSelectedFileObject();
-        
+
         changedFOs.remove( selectedFileObject );
         setListModel();
     }
-    
+
     private void setListModel()
     {
         Collections.sort( changedFOs, (FileObject o1, FileObject o2) -> lastAccess.get( o2 ).compareTo( lastAccess.get( o1 ) ) );
-        
+
         List<FileObject> toShow = new ArrayList<>();
-        
+
         String searchString = txtSearch.getText();
-        
+
         if ( searchString.isEmpty() )
         {
             toShow.addAll( changedFOs );
@@ -365,33 +368,33 @@ public final class LastEditedTopComponent extends TopComponent
         {
             for ( FileObject fo : changedFOs )
             {
-                
+
                 if ( fo.getNameExt().toLowerCase().contains( searchString.trim().toLowerCase() ) )
                 {
                     toShow.add( fo );
                 }
-                
+
             }
         }
-        
+
         list.setModel( new DefaultListModel()
         {
-            
+
             @Override
             public Object getElementAt( int index )
             {
                 return toShow.get( index ).getNameExt();
             }
-            
+
             @Override
             public int getSize()
             {
                 return toShow.size();
             }
-            
+
         } );
     }
-    
+
     private Set<FileObject> getChangedFileObjects()
     {
         Set<FileObject> res = new HashSet<>();
@@ -401,10 +404,10 @@ public final class LastEditedTopComponent extends TopComponent
             Set<FileObject> fss = object.files();
             res.addAll( fss );
         }
-        
+
         return res;
     }
-    
+
     void writeProperties( java.util.Properties p )
     {
         // better to version settings since initial version as advocated at
@@ -412,7 +415,7 @@ public final class LastEditedTopComponent extends TopComponent
         p.setProperty( "version", "1.0" );
         // TODO store your settings
     }
-    
+
     void readProperties( java.util.Properties p )
     {
         String version = p.getProperty( "version" );
