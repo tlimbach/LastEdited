@@ -6,6 +6,10 @@
 package lastedited;
 
 import java.awt.event.ActionEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
@@ -19,6 +23,7 @@ import javax.swing.AbstractAction;
 import javax.swing.DefaultListModel;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
+import javax.swing.ListSelectionModel;
 import javax.swing.event.ChangeEvent;
 import org.netbeans.api.settings.ConvertAsProperties;
 import org.openide.awt.ActionID;
@@ -60,21 +65,20 @@ import org.openide.windows.TopComponent;
         })
 public final class LastEditedTopComponent extends TopComponent
 {
-
+    
     private final List<FileObject> changedFOs = new ArrayList<>();
     private final Set<FileObject> fosWithListeners = new HashSet<>();
     private final Map<FileObject, Long> lastAccess = new HashMap<>();
-
     FileChangeListener fcl;
-
+    
     public LastEditedTopComponent()
     {
         initComponents();
         setName( Bundle.CTL_LasteditedTopComponent() );
         setToolTipText( Bundle.HINT_LasteditedTopComponent() );
-
+        
         start();
-
+        
     }
 
     /** This method is called from within the constructor to
@@ -88,6 +92,7 @@ public final class LastEditedTopComponent extends TopComponent
 
         jScrollPane1 = new javax.swing.JScrollPane();
         list = new javax.swing.JList();
+        txtSearch = new javax.swing.JTextField();
 
         list.setModel(new javax.swing.AbstractListModel()
         {
@@ -97,21 +102,34 @@ public final class LastEditedTopComponent extends TopComponent
         });
         jScrollPane1.setViewportView(list);
 
+        txtSearch.setText(org.openide.util.NbBundle.getMessage(LastEditedTopComponent.class, "LastEditedTopComponent.txtSearch.text")); // NOI18N
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1)
+                    .addComponent(txtSearch, javax.swing.GroupLayout.DEFAULT_SIZE, 424, Short.MAX_VALUE))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 302, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 275, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(9, 9, 9))
         );
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JList list;
+    private javax.swing.JTextField txtSearch;
     // End of variables declaration//GEN-END:variables
 
     @Override
@@ -119,16 +137,18 @@ public final class LastEditedTopComponent extends TopComponent
     {
         // TODO add custom code on component opening
     }
-
+    
     @Override
     public void componentClosed()
     {
         // TODO add custom code on component closing
     }
-
+    
     private void start()
     {
+        txtSearch.setText( "" );
         setListModel();
+        list.setSelectionMode( ListSelectionModel.SINGLE_SELECTION );
         fcl = new FileChangeAdapter()
         {
             @Override
@@ -137,13 +157,13 @@ public final class LastEditedTopComponent extends TopComponent
                 synchronized ( LastEditedTopComponent.this )
                 {
                     FileObject fo = (FileObject) fe.getSource();
-
+                    
                     lastAccess.put( fo, System.currentTimeMillis() );
                     if ( !changedFOs.contains( fo ) )
                     {
                         changedFOs.add( fo );
                     }
-
+                    
                     List<FileObject> toBeRemoved = new ArrayList<>();
                     List<String> names = new ArrayList<>();
                     for ( FileObject f : changedFOs )
@@ -158,13 +178,13 @@ public final class LastEditedTopComponent extends TopComponent
                             lastAccess.remove( f );
                         }
                     }
-
+                    
                     changedFOs.removeAll( toBeRemoved );
                     setListModel();
                 }
-
+                
             }
-
+            
             @Override
             public void fileDeleted( FileEvent fe )
             {
@@ -173,7 +193,7 @@ public final class LastEditedTopComponent extends TopComponent
                 lastAccess.remove( fo );
                 setListModel();
             }
-
+            
             @Override
             public void fileRenamed( FileRenameEvent fe )
             {
@@ -182,9 +202,9 @@ public final class LastEditedTopComponent extends TopComponent
                 lastAccess.remove( fo );
                 setListModel();
             }
-
+            
         };
-
+        
         DataObject.getRegistry().addChangeListener( (ChangeEvent e) ->
         {
             getChangedFileObjects().stream().filter( (fo) -> ( !fosWithListeners.contains( fo ) ) ).forEach( (fo) ->
@@ -193,10 +213,62 @@ public final class LastEditedTopComponent extends TopComponent
                 fo.addFileChangeListener( fcl );
             } );
         } );
-
-        list.addMouseListener(new MouseAdapter()
+        
+        addFocusListener( new FocusAdapter()
         {
-
+            @Override
+            public void focusGained( FocusEvent e )
+            {
+                txtSearch.requestFocus();
+            }
+            
+        } );
+        
+        txtSearch.addKeyListener( new KeyAdapter()
+        {
+            @Override
+            public void keyPressed( KeyEvent e )
+            {
+                if ( e.getKeyCode() == 38 || e.getKeyCode() == 40 )
+                {
+                    list.requestFocus();
+                }
+            }
+            
+            @Override
+            public void keyReleased( KeyEvent e )
+            {
+                if ( e.getKeyCode() == 27 )
+                {
+                    // ESC
+                    txtSearch.setText( "" );
+                    setListModel();
+                }
+                else if ( e.getKeyCode() == 10 )
+                {
+                    if ( list.getSelectedIndex() == -1 && list.getModel().getSize() == 1 )
+                    {
+                        list.setSelectedIndex( 0 );
+                    }
+                    // Enter
+                    openFile();
+                }
+                else
+                {
+                    setListModel();
+                }
+            }
+            
+            @Override
+            public void keyTyped( KeyEvent e )
+            {
+                // no use
+            }
+        } );
+        
+        list.addMouseListener( new MouseAdapter()
+        {
+            
             @Override
             public void mouseClicked( MouseEvent e )
             {
@@ -205,79 +277,121 @@ public final class LastEditedTopComponent extends TopComponent
                     JPopupMenu popup = new JPopupMenu();
                     popup.add( new JMenuItem( new AbstractAction( "kick" )
                     {
-
+                        
                         @Override
                         public void actionPerformed( ActionEvent e )
                         {
                             kickFile();
                         }
                     } ) );
-                    popup.show(LastEditedTopComponent.this, e.getX(), e.getY() );
+                    popup.show( LastEditedTopComponent.this, e.getX(), e.getY() );
                 }
                 else
                 {
                     openFile();
                 }
             }
-
-            private void kickFile()
-            {
-                int[] idxs = list.getSelectedIndices();
-                List<FileObject> toBeRemoved = new ArrayList<>();
-
-                for ( int idx : idxs )
-                {
-                    toBeRemoved.add( changedFOs.get( idx ) );
-                }
-
-                changedFOs.removeAll( toBeRemoved );
-                setListModel();
-            }
-
-            private void openFile()
-            {
-                int idx = list.getSelectedIndex();
-
-                if ( idx >= 0 )
-                {
-                    try
-                    {
-                        FileObject fo = changedFOs.get( idx );
-                        fo.getLookup().lookup( OpenCookie.class ).open();
-                    }
-                    catch ( Exception ex )
-                    {
-                        System.err.println( "Last Edited: " + ex.getMessage() );
-                    }
-
-                }
-            }
+            
         } );
-
+        
+        list.addKeyListener( new KeyAdapter()
+        {
+            @Override
+            public void keyPressed( KeyEvent e )
+            {
+                openFile();
+            }
+            
+        } );
+        
     }
-
+    
+    private FileObject getSelectedFileObject()
+    {
+        Object selObj = list.getSelectedValue();
+        if ( selObj != null )
+        {
+            String val = (String) selObj;
+            
+            try
+            {
+                FileObject f = changedFOs.stream().filter( fo -> fo.getNameExt().trim().equals( val.trim() ) ).findFirst().get();
+                return f;
+            }
+            catch ( Exception ex )
+            {
+                System.err.println( "Last Edited: " + ex.getMessage() );
+            }
+            
+        }
+        return null;
+    }
+    
+    private void openFile()
+    {
+        try
+        {
+            FileObject f = getSelectedFileObject();
+            f.getLookup().lookup( OpenCookie.class ).open();
+        }
+        catch ( Exception ex )
+        {
+            System.err.println( "Last Edited: " + ex.getMessage() );
+        }
+        
+    }
+    
+    private void kickFile()
+    {
+        FileObject selectedFileObject = getSelectedFileObject();
+        
+        changedFOs.remove( selectedFileObject );
+        setListModel();
+    }
+    
     private void setListModel()
     {
-        Collections.sort(changedFOs, (FileObject o1, FileObject o2) -> lastAccess.get( o2 ).compareTo( lastAccess.get( o1 ) ));
-
+        Collections.sort( changedFOs, (FileObject o1, FileObject o2) -> lastAccess.get( o2 ).compareTo( lastAccess.get( o1 ) ) );
+        
+        List<FileObject> toShow = new ArrayList<>();
+        
+        String searchString = txtSearch.getText();
+        
+        if ( searchString.isEmpty() )
+        {
+            toShow.addAll( changedFOs );
+        }
+        else
+        {
+            for ( FileObject fo : changedFOs )
+            {
+                
+                if ( fo.getNameExt().toLowerCase().contains( searchString.trim().toLowerCase() ) )
+                {
+                    toShow.add( fo );
+                }
+                
+            }
+        }
+        
         list.setModel( new DefaultListModel()
         {
-
+            
             @Override
             public Object getElementAt( int index )
             {
-                return changedFOs.get( index ).getNameExt();
+                return toShow.get( index ).getNameExt();
             }
-
+            
             @Override
             public int getSize()
             {
-                return changedFOs.size();
+                return toShow.size();
             }
-
+            
         } );
     }
-
+    
     private Set<FileObject> getChangedFileObjects()
     {
         Set<FileObject> res = new HashSet<>();
@@ -287,10 +401,10 @@ public final class LastEditedTopComponent extends TopComponent
             Set<FileObject> fss = object.files();
             res.addAll( fss );
         }
-
+        
         return res;
     }
-
+    
     void writeProperties( java.util.Properties p )
     {
         // better to version settings since initial version as advocated at
@@ -298,7 +412,7 @@ public final class LastEditedTopComponent extends TopComponent
         p.setProperty( "version", "1.0" );
         // TODO store your settings
     }
-
+    
     void readProperties( java.util.Properties p )
     {
         String version = p.getProperty( "version" );
